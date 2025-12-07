@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Energy Savings Incentive App</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #000;
+      color: #fff;
+    }
+
+    .app-container {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 12px;
+      font-size: 1.4rem;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 12px;
+      border-bottom: 1px solid #333;
+    }
+
+    .tab {
+      flex: 1;
+      text-align: center;
+      padding: 10px 0;
+      cursor: pointer;
+      font-weight: 600;
+      border-radius: 8px 8px 0 0;
+      margin: 0 2px;
+    }
+
+    .tab.inhabitant {
+      color: #00ff5a;
+    }
+
+    .tab.investment {
+      color: #ffa500;
+    }
+
+    .tab.active {
+      background: #111;
+      border: 1px solid #444;
+      border-bottom: none;
+    }
+
+    .panel {
+      border: 1px solid #444;
+      border-radius: 0 0 12px 12px;
+      padding: 12px;
+      background: #111;
+      margin-bottom: 16px;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    label {
+      display: block;
+      font-size: 0.9rem;
+      margin-top: 8px;
+      margin-bottom: 4px;
+      color: #ccc;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 8px;
+      font-size: 1rem;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #000;
+      color: #fff;
+      box-sizing: border-box;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: #00ff5a;
+    }
+
+    .button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .button.green {
+      background: #00ff5a;
+      color: #000;
+    }
+
+    .button.orange {
+      background: #ffa500;
+      color: #000;
+    }
+
+    .result {
+      margin-top: 12px;
+      padding: 8px;
+      border-radius: 8px;
+      background: #000;
+      border: 1px solid #333;
+      white-space: pre-line; /* keep line breaks */
+      font-size: 0.95rem;
+    }
+
+    .reward-options {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .reward-chip {
+      flex: 1;
+      padding: 6px;
+      border-radius: 999px;
+      border: 1px solid #444;
+      text-align: center;
+      font-size: 0.9rem;
+      cursor: pointer;
+      background: #222;
+      color: #fff;
+    }
+
+    .reward-chip.active {
+      background: #00ff5a;
+      color: #000;
+      border-color: #00ff5a;
+    }
+
+    .note {
+      margin-top: 6px;
+      font-size: 0.8rem;
+      color: #888;
+    }
+
+    .charts-title {
+      font-size: 1.1rem;
+      margin: 0 0 8px 0;
+    }
+
+    canvas {
+      width: 100%;
+      max-width: 100%;
+      background: #000;
+      border: 1px solid #333;
+      border-radius: 8px;
+      display: block;
+      margin-top: 8px;
+    }
+
+    .charts-panel {
+      border-radius: 12px;
+    }
+
+    .chart-caption {
+      font-size: 0.8rem;
+      color: #aaa;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-container">
+    <h1>Energy Savings Incentive</h1>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <div id="tab-inhabitant" class="tab inhabitant active">Inhabitant</div>
+      <div id="tab-investment" class="tab investment">Investment</div>
+    </div>
+
+    <!-- Inhabitant Panel -->
+    <div id="panel-inhabitant" class="panel">
+      <h2 style="color:#00ff5a; font-size:1.2rem; margin-top:0;">Inhabitant Side</h2>
+
+      <label for="baseline">Baseline consumption (kWh)</label>
+      <input type="number" id="baseline" placeholder="e.g. 300">
+
+      <label for="current">Current consumption (kWh)</label>
+      <input type="number" id="current" placeholder="e.g. 200">
+
+      <label for="price">Energy price per kWh (€)</label>
+      <input type="number" step="0.01" id="price" value="0.30">
+
+      <label for="rate">Incentive / penalty rate (0–1)</label>
+      <input type="number" step="0.1" id="rate" value="1.0">
+
+      <label for="iban">Bank account (for refund)</label>
+      <input type="text" id="iban" placeholder="e.g. NL00BANK1234567890">
+
+      <label>Reward type (used when there is a saving)</label>
+      <div class="reward-options">
+        <div class="reward-chip active" data-reward="REFUND">Refund</div>
+        <div class="reward-chip" data-reward="STOCK">Stock</div>
+        <div class="reward-chip" data-reward="TOKEN">Token</div>
+      </div>
+
+      <button id="btn-calc" class="button green">Calculate</button>
+
+      <div id="result-inhabitant" class="result" style="display:none;"></div>
+    </div>
+
+    <!-- Investment Panel -->
+    <div id="panel-investment" class="panel hidden">
+      <h2 style="color:#ffa500; font-size:1.2rem; margin-top:0;">Investment Side</h2>
+
+      <label for="monetary">Monetary savings (€)</label>
+      <input type="number" step="0.01" id="monetary" placeholder="e.g. 30">
+
+      <label for="token-price">Token price (€ per token)</label>
+      <input type="number" step="0.01" id="token-price" value="2.0">
+
+      <button id="btn-invest" class="button orange">Simulate Investment</button>
+
+      <div id="result-investment" class="result" style="display:none;"></div>
+
+      <div class="note">
+        Note: In a real system, these tokens could be tradable on a secondary market or linked to green investments.
+      </div>
+    </div>
+
+    <!-- Charts Panel -->
+    <div class="panel charts-panel">
+      <div>
+        <div class="charts-title">ENERGY Token Balance Over Time</div>
+        <canvas id="tokenChart" width="400" height="200"></canvas>
+        <div class="chart-caption">
+          Random 100-step history + your own investments create “bumps and pumps” in the ENERGY token balance.
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div class="charts-title">Asset vs Consumption Threshold</div>
+        <canvas id="assetChart" width="400" height="200"></canvas>
+        <div class="chart-caption">
+          Asset bar shrinks as consumption approaches the threshold (baseline). If you exceed it, the asset is depleted.
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div class="charts-title">Monthly Average Consumption</div>
+        <canvas id="monthlyChart" width="400" height="200"></canvas>
+        <div class="chart-caption">
+          Random monthly averages to illustrate consumption over a year.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // --- Tabs ---
+    const tabInhabitant = document.getElementById('tab-inhabitant');
+    const tabInvestment = document.getElementById('tab-investment');
+    const panelInhabitant = document.getElementById('panel-inhabitant');
+    const panelInvestment = document.getElementById('panel-investment');
+
+    tabInhabitant.addEventListener('click', () => {
+      tabInhabitant.classList.add('active');
+      tabInvestment.classList.remove('active');
+      panelInhabitant.classList.remove('hidden');
+      panelInvestment.classList.add('hidden');
+    });
+
+    tabInvestment.addEventListener('click', () => {
+      tabInvestment.classList.add('active');
+      tabInhabitant.classList.remove('active');
+      panelInvestment.classList.remove('hidden');
+      panelInhabitant.classList.add('hidden');
+    });
+
+    // --- Reward chips ---
+    const rewardChips = document.querySelectorAll('.reward-chip');
+    let selectedReward = 'REFUND';
+
+    rewardChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        rewardChips.forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        selectedReward = chip.getAttribute('data-reward');
+      });
+    });
+
+    // --- Charts state ---
+    const tokenCanvas = document.getElementById('tokenChart');
+    const tokenCtx = tokenCanvas.getContext('2d');
+    const assetCanvas = document.getElementById('assetChart');
+    const assetCtx = assetCanvas.getContext('2d');
+    const monthlyCanvas = document.getElementById('monthlyChart');
+    const monthlyCtx = monthlyCanvas.getContext('2d');
+
+    let tokenHistory = [];   // cumulative ENERGY balance (random + user)
+    let tokenTotal = 0;      // current total ENERGY balance
+
+    let monthlyData = [];    // 12 months of average consumption
+
+    // --- Random 100-step token history (bumps & pumps) ---
+    function initRandomTokenHistory() {
+      tokenHistory = [];
+      tokenTotal = 0;
+      for (let i = 0; i < 100; i++) {
+        // Random walk: some up, some down, but never below zero
+        const delta = (Math.random() - 0.4) * 10; // bias slightly upwards
+        tokenTotal = Math.max(0, tokenTotal + delta);
+        tokenHistory.push(tokenTotal);
+      }
+    }
+
+    // --- Draw ENERGY token chart ---
+    function drawTokenChart() {
+      const ctx = tokenCtx;
+      const w = tokenCanvas.width;
+      const h = tokenCanvas.height;
+      const padding = 30;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Background
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, w, h);
+
+      // If no data yet
+      if (tokenHistory.length === 0) {
+        ctx.fillStyle = "#888888";
+        ctx.font = "12px sans-serif";
+        ctx.fillText("No token data yet.", 20, h / 2);
+        return;
+      }
+
+      const maxTokens = Math.max(...tokenHistory);
+      const innerW = w - padding * 2;
+      const innerH = h - padding * 2;
+
+      // Axes
+      ctx.strokeStyle = "#444444";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding, padding);
+      ctx.lineTo(padding, h - padding);
+      ctx.lineTo(w - padding, h - padding);
+      ctx.stroke();
+
+      // Line
+      ctx.strokeStyle = "#00ff5a";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+
+      tokenHistory.forEach((val, index) => {
+        const xRatio = tokenHistory.length === 1 ? 0 : index / (tokenHistory.length - 1);
+        const yRatio = maxTokens === 0 ? 0 : val / maxTokens;
+
+        const x = padding + xRatio * innerW;
+        const y = h - padding - yRatio * innerH;
+
+        if (index === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+      });
+      ctx.stroke();
+
+      // Dots
+      ctx.fillStyle = "#00ff5a";
+      tokenHistory.forEach((val, index) => {
+        const xRatio = tokenHistory.length === 1 ? 0 : index / (tokenHistory.length - 1);
+        const yRatio = maxTokens === 0 ? 0 : val / maxTokens;
+
+        const x = padding + xRatio * innerW;
+        const y = h - padding - yRatio * innerH;
+
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // Label
+      ctx.fillStyle = "#aaaaaa";
+      ctx.font = "10px sans-serif";
+      ctx.fillText("Tokens", 5, padding - 10);
+      ctx.fillText(maxTokens.toFixed(2), 5, padding + 10);
+    }
+
+    // --- Draw asset vs consumption threshold chart ---
+    function drawAssetChart(thresholdKwh, consumptionKwh) {
+      const ctx = assetCtx;
+      const w = assetCanvas.width;
+      const h = assetCanvas.height;
+      const padding = 30;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Background
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, w, h);
+
+      // If no valid threshold, show message
+      if (!thresholdKwh || thresholdKwh <= 0) {
+        ctx.fillStyle = "#888888";
+        ctx.font = "12px sans-serif";
+        ctx.fillText("No threshold yet. Enter baseline & current consumption and press Calculate.", 20, h / 2);
+        return;
+      }
+
+      const innerW = w - padding * 2;
+      const barHeight = 40;
+
+      const used = Math.min(consumptionKwh, thresholdKwh);
+      const remaining = Math.max(0, thresholdKwh - consumptionKwh);
+      const exceed = Math.max(0, consumptionKwh - thresholdKwh);
+
+      const usedRatio = used / thresholdKwh;
+      const remainingRatio = remaining / thresholdKwh;
+
+      const barX = padding;
+      const barY = h / 2 - barHeight / 2;
+      const fullBarW = innerW;
+
+      // Full bar outline
+      ctx.strokeStyle = "#444444";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(barX, barY, fullBarW, barHeight);
+
+      // Used (consumption) portion
+      ctx.fillStyle = "#ff4444";
+      ctx.fillRect(barX, barY, fullBarW * usedRatio, barHeight);
+
+      // Remaining asset portion
+      ctx.fillStyle = "#00ff5a";
+      ctx.fillRect(barX + fullBarW * usedRatio, barY, fullBarW * remainingRatio, barHeight);
+
+      // Labels
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "11px sans-serif";
+      ctx.fillText("Consumption", barX + 4, barY - 6);
+      if (remaining > 0) {
+        ctx.fillText("Remaining asset", barX + fullBarW * usedRatio + 4, barY - 6);
+      }
+
+      // Numerical info
+      ctx.fillStyle = "#cccccc";
+      const infoY = barY + barHeight + 18;
+      ctx.fillText("Threshold: " + thresholdKwh.toFixed(2) + " kWh", barX, infoY);
+      ctx.fillText("Consumption: " + consumptionKwh.toFixed(2) + " kWh", barX, infoY + 14);
+      ctx.fillText("Remaining: " + remaining.toFixed(2) + " kWh", barX, infoY + 28);
+      if (exceed > 0) {
+        ctx.fillStyle = "#ff7777";
+        ctx.fillText("Exceeded threshold by: " + exceed.toFixed(2) + " kWh", barX, infoY + 42);
+      }
+    }
+
+    // --- Monthly average consumption (random demo data) ---
+    const monthLabels = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+    function generateRandomMonthlyData() {
+      monthlyData = [];
+      for (let i = 0; i < 12; i++) {
+        // random base between 200 and 400 kWh
+        const val = 200 + Math.random() * 200;
+        monthlyData.push(val);
+      }
+    }
+
+    function drawMonthlyChart() {
+      const ctx = monthlyCtx;
+      const w = monthlyCanvas.width;
+      const h = monthlyCanvas.height;
+      const padding = 30;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // Background
+      ctx.fillStyle = "#000000";
+      ctx.fillRect(0, 0, w, h);
+
+      if (monthlyData.length !== 12) {
+        ctx.fillStyle = "#888888";
+        ctx.font = "12px sans-serif";
+        ctx.fillText("No monthly data.", 20, h / 2);
+        return;
+      }
+
+      const maxVal = Math.max(...monthlyData);
+      const innerW = w - padding * 2;
+      const innerH = h - padding * 2;
+
+      // Axes
+      ctx.strokeStyle = "#444444";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padding, padding);
+      ctx.lineTo(padding, h - padding);
+      ctx.lineTo(w - padding, h - padding);
+      ctx.stroke();
+
+      const barWidth = innerW / monthlyData.length * 0.7;
+      const gap = innerW / monthlyData.length * 0.3;
+
+      monthlyData.forEach((val, index) => {
+        const x = padding + index * (barWidth + gap);
+        const ratio = val / maxVal;
+        const barH = ratio * innerH;
+        const y = h - padding - barH;
+
+        // bar
+        ctx.fillStyle = "#3399ff";
+        ctx.fillRect(x, y, barWidth, barH);
+
+        // label
+        ctx.fillStyle = "#aaaaaa";
+        ctx.font = "9px sans-serif";
+        ctx.fillText(monthLabels[index], x, h - padding + 12);
+      });
+
+      // max label
+      ctx.fillStyle = "#aaaaaa";
+      ctx.font = "10px sans-serif";
+      ctx.fillText("kWh", 5, padding - 10);
+      ctx.fillText(maxVal.toFixed(0), 5, padding + 10);
+    }
+
+    // --- Inhabitant calculation (savings OR penalty) ---
+    const btnCalc = document.getElementById('btn-calc');
+    const resultInhabitant = document.getElementById('result-inhabitant');
+
+    btnCalc.addEventListener('click', () => {
+      const baseline = parseFloat(document.getElementById('baseline').value) || 0;
+      const current = parseFloat(document.getElementById('current').value) || 0;
+      const price = parseFloat(document.getElementById('price').value) || 0;
+      const rate = parseFloat(document.getElementById('rate').value) || 0;
+      const iban = document.getElementById('iban').value.trim();
+
+      const savingsKwh = Math.max(0, baseline - current);
+      const overuseKwh = Math.max(0, current - baseline);
+
+      const monetarySaving = savingsKwh * price * rate;
+      const monetaryPenalty = overuseKwh * price * rate;
+
+      let text = "";
+
+      if (savingsKwh > 0) {
+        // We have savings: apply chosen reward
+        if (selectedReward === 'REFUND') {
+          text =
+            "Saving scenario ✅\n" +
+            "Reward type: REFUND\n" +
+            "Energy savings: " + savingsKwh.toFixed(2) + " kWh\n" +
+            "Monetary value: €" + monetarySaving.toFixed(2) + "\n" +
+            "Refund to bank account: " + (iban || "not provided");
+        } else if (selectedReward === 'STOCK') {
+          text =
+            "Saving scenario ✅\n" +
+            "Reward type: STOCK INVESTMENT\n" +
+            "Energy savings: " + savingsKwh.toFixed(2) + " kWh\n" +
+            "Monetary value: €" + monetarySaving.toFixed(2) + "\n" +
+            "Simulated action: invest in GREEN_ETF.";
+        } else if (selectedReward === 'TOKEN') {
+          text =
+            "Saving scenario ✅\n" +
+            "Reward type: TOKEN\n" +
+            "Energy savings: " + savingsKwh.toFixed(2) + " kWh\n" +
+            "Monetary value: €" + monetarySaving.toFixed(2) + "\n" +
+            "Next: convert this amount to tokens on the Investment tab.";
+        }
+
+        // Pre-fill monetary field on the investment side with savings
+        document.getElementById('monetary').value = monetarySaving.toFixed(2);
+      } else if (overuseKwh > 0) {
+        // Penalty scenario: overpaying
+        text =
+          "Penalty scenario ⚠️\n" +
+          "You exceeded the baseline.\n" +
+          "Overuse: " + overuseKwh.toFixed(2) + " kWh\n" +
+          "Penalty (overpaying): €" + monetaryPenalty.toFixed(2) + "\n" +
+          "This amount could be charged as a surcharge.";
+        // In penalty case, we do NOT pre-fill monetary savings.
+      } else {
+        text = "No savings and no overuse compared to baseline.";
+      }
+
+      resultInhabitant.style.display = "block";
+      resultInhabitant.textContent = text;
+
+      // Update asset chart (asset diminishing as consumption approaches threshold)
+      drawAssetChart(baseline, current);
+    });
+
+    // --- Investment calculation (adds to token history) ---
+    const btnInvest = document.getElementById('btn-invest');
+    const resultInvestment = document.getElementById('result-investment');
+
+    btnInvest.addEventListener('click', () => {
+      const monetary = parseFloat(document.getElementById('monetary').value) || 0;
+      const tokenPrice = parseFloat(document.getElementById('token-price').value) || 0;
+
+      if (monetary <= 0 || tokenPrice <= 0) {
+        resultInvestment.style.display = "block";
+        resultInvestment.textContent = "Enter positive values for monetary savings and token price.";
+        return;
+      }
+
+      const tokens = monetary / tokenPrice;
+
+      const text =
+        "Monetary savings: €" + monetary.toFixed(2) + "\n" +
+        "Token price: €" + tokenPrice.toFixed(2) + "\n" +
+        "Tokens to mint: " + tokens.toFixed(2) + " ENERGY";
+
+      resultInvestment.style.display = "block";
+      resultInvestment.textContent = text;
+
+      // Update token “bumps and pumps” chart
+      tokenTotal += tokens;
+      tokenHistory.push(tokenTotal);
+      drawTokenChart();
+    });
+
+    // --- Initial setup: random token history + random monthly data ---
+    initRandomTokenHistory();
+    generateRandomMonthlyData();
+
+    drawTokenChart();
+    drawAssetChart(0, 0);
+    drawMonthlyChart();
+  </script>
+</body>
+</html>
